@@ -1,7 +1,10 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://scamshield-gy1b.onrender.com";
+const RAW_URL = import.meta.env.VITE_API_URL || "https://scamshield-gy1b.onrender.com";
+// Ensure trailing slashes are removed to prevent '//analyze/...' 404s
+const API_BASE_URL = RAW_URL.replace(/\/+$/, "");
 
 async function fetchWithTimeout(resource, options = {}) {
-  const { timeout = 8000 } = options;
+  // 60-second timeout allows Render free-tier cold starts to boot up without aborting
+  const { timeout = 60000 } = options;
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
 
@@ -15,7 +18,9 @@ async function fetchWithTimeout(resource, options = {}) {
   } catch (err) {
     clearTimeout(id);
     if (err.name === "AbortError") {
-      throw new Error("Connection timed out. Verify that the FastAPI backend is running on http://127.0.0.1:8000.");
+      throw new Error(
+        "Backend server is waking up from idle (cold start). Please try again in 10-15 seconds."
+      );
     }
     throw new Error(err.message || "Failed to communicate with ScamShield API.");
   }
@@ -29,7 +34,7 @@ export async function analyzeMessageApi(message) {
   });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to analyze message");
+    throw new Error(errorData.detail || `Server responded with status ${response.status}`);
   }
   return await response.json();
 }
@@ -42,7 +47,7 @@ export async function analyzeUrlApi(url) {
   });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to analyze URL");
+    throw new Error(errorData.detail || `Server responded with status ${response.status}`);
   }
   return await response.json();
 }
@@ -58,7 +63,7 @@ export async function analyzeScreenshotApi(file) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to analyze screenshot");
+    throw new Error(errorData.detail || `Server responded with status ${response.status}`);
   }
   return await response.json();
 }

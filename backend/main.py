@@ -1,8 +1,9 @@
 import sys
 import os
 import io
+import shutil
 
-# 1. Add 'src' directory to Python path BEFORE importing local modules
+# 1. Resolve path to ScamShield/src and add to sys.path first
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
 SRC_PATH = os.path.join(PROJECT_ROOT, "src")
@@ -15,17 +16,21 @@ from url_checker import analyze_url
 from email_checker import analyze_message
 from website_checker import analyze_website_info
 
-# 3. Third-party library imports
+# 3. Third-party imports
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from PIL import Image, ImageEnhance, ImageOps
 import pytesseract
 
-# Set Tesseract executable path
-pytesseract.pytesseract.tesseract_cmd = (
-    r"C:\Users\Student\AppData\Local\Tesseract-OCR\tesseract.exe"
-)
+# 4. Dynamic Tesseract Binary Detection
+system_tesseract = shutil.which("tesseract")
+if system_tesseract:
+    pytesseract.pytesseract.tesseract_cmd = system_tesseract
+else:
+    pytesseract.pytesseract.tesseract_cmd = (
+        r"C:\Users\Student\AppData\Local\Tesseract-OCR\tesseract.exe"
+    )
 
 app = FastAPI(
     title="ScamShield API",
@@ -33,14 +38,18 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# Enable CORS for the Vite frontend
+# 5. Permissive CORS Middleware Configuration
+origins = [
+    "https://scamshield-wine.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "*"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173"
-    ],
-    allow_credentials=True,
+    allow_origins=origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -65,30 +74,22 @@ def get_risk_level(risk_score: int) -> str:
     return "CRITICAL PHISHING THREAT"
 
 def extract_text_robust(image: Image.Image) -> str:
-    """
-    Multi-pass extraction:
-    - Pass 1: Standard PSM 6 (uniform block of text)
-    - Pass 2: Sparse text PSM 11 (catches buttons like 'UPDATE ACCOUNT NOW' and banners)
-    - Pass 3: Inverted image for white text on colored banners/buttons
-    """
+    """Multi-pass extraction for standard text, buttons, and inverted banners."""
     w, h = image.size
     upscaled = image.resize((w * 2, h * 2), Image.Resampling.LANCZOS)
     gray = upscaled.convert("L")
     enhancer = ImageEnhance.Contrast(gray)
     enhanced = enhancer.enhance(2.0)
     
-    # Pass 1: standard block
     t1 = pytesseract.image_to_string(enhanced, config=r'--oem 3 --psm 6')
-    # Pass 2: sparse text (isolated buttons and banners)
     t2 = pytesseract.image_to_string(enhanced, config=r'--oem 3 --psm 11')
     
-    # Pass 3: inverted pass for white text on colored backgrounds
     inverted = ImageOps.invert(gray)
     t3 = pytesseract.image_to_string(inverted, config=r'--oem 3 --psm 11')
     
     return f"{t1}\n{t2}\n{t3}".strip()
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def home():
     return {
         "message": "ScamShield Security Engine Active",
@@ -98,45 +99,58 @@ def home():
 
 @app.post("/analyze/url")
 def analyze_url_endpoint(request: URLRequest):
-    risk_score, warnings = analyze_url(request.url)
-    return {
-        "risk_score": risk_score,
-        "risk_level": get_risk_level(risk_score),
-        "warnings": warnings,
-        "matched_phrases": [],
-        "categories": ["URL Inspection"]
-    }
+    try:
+        risk_score, warnings = analyze_url(request.url)
+        return {
+            "risk_score": risk_score,
+            "risk_level": get_risk_level(risk_score),
+            "warnings": warnings,
+            "matched_phrases": [],
+            "categories": ["URL Inspection"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"URL inspection error: {str(e)}")
 
 @app.post("/analyze/message")
 def analyze_message_endpoint(request: MessageRequest):
-    result = analyze_message(request.message)
-    if len(result) == 4:
-        risk_score, warnings, matched_phrases, categories = result
-    else:
-        risk_score, warnings = result
-        matched_phrases, categories = [], []
+    try:
+        raw_result = analyze_message(request.message)
 
-    return {
-        "risk_score": risk_score,
-        "risk_level": get_risk_level(risk_score),
-        "warnings": warnings,
-        "matched_phrases": matched_phrases,
-        "categories": categories
-    }
+        # Dynamic unpack supporting 4-element, 2-element, or custom returns
+        if isinstance(raw_result, tuple) and len(raw_result) == 4:
+            risk_score, warnings, matched_phrases, categories = raw_result
+        elif isinstance(raw_result, tuple) and len(raw_result) == 2:
+            risk_score, warnings = raw_result
+            matched_phrases, categories = [], []
+        else:
+            risk_score, warnings, matched_phrases, categories = 0, [], [], []
+
+        return {
+            "risk_score": risk_score,
+            "risk_level": get_risk_level(risk_score),
+            "warnings": warnings,
+            "matched_phrases": matched_phrases,
+            "categories": categories
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Message analysis error: {str(e)}")
 
 @app.post("/analyze/website")
 def analyze_website_endpoint(request: WebsiteRequest):
-    risk_score, warnings = analyze_website_info(
-        request.page_title,
-        request.page_text
-    )
-    return {
-        "risk_score": risk_score,
-        "risk_level": get_risk_level(risk_score),
-        "warnings": warnings,
-        "matched_phrases": [],
-        "categories": ["Website Inspection"]
-    }
+    try:
+        risk_score, warnings = analyze_website_info(
+            request.page_title,
+            request.page_text
+        )
+        return {
+            "risk_score": risk_score,
+            "risk_level": get_risk_level(risk_score),
+            "warnings": warnings,
+            "matched_phrases": [],
+            "categories": ["Website Inspection"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Website check error: {str(e)}")
 
 @app.post("/analyze/screenshot")
 async def analyze_screenshot_endpoint(file: UploadFile = File(...)):
@@ -174,12 +188,14 @@ async def analyze_screenshot_endpoint(file: UploadFile = File(...)):
             "categories": ["OCR Analysis"]
         }
 
-    result = analyze_message(extracted_text)
-    if len(result) == 4:
-        risk_score, warnings, matched_phrases, categories = result
-    else:
-        risk_score, warnings = result
+    raw_result = analyze_message(extracted_text)
+    if isinstance(raw_result, tuple) and len(raw_result) == 4:
+        risk_score, warnings, matched_phrases, categories = raw_result
+    elif isinstance(raw_result, tuple) and len(raw_result) == 2:
+        risk_score, warnings = raw_result
         matched_phrases, categories = [], []
+    else:
+        risk_score, warnings, matched_phrases, categories = 0, [], [], []
 
     clean_preview = " ".join(extracted_text.split())
     preview_snippet = clean_preview[:120] + "..." if len(clean_preview) > 120 else clean_preview
