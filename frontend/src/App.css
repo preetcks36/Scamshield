@@ -1,0 +1,164 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f4f7fb;
+  color: #1f2937;
+}
+
+.app {
+  min-height: 100vh;
+}
+
+header {
+  text-align: center;
+  padding: 40px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 2.5rem;
+}
+
+header p {
+  color: #6b7280;
+  margin-top: 10px;
+}
+
+main {
+  width: 90%;
+  max-width: 850px;
+  margin: 40px auto;
+}
+
+.analysis-selector {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 25px;
+}
+
+.analysis-selector button {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: 8px;
+  background: #e5e7eb;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.analysis-selector button.active {
+  background: #2563eb;
+  color: white;
+}
+
+.analyzer,
+.result {
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+textarea {
+  width: 100%;
+  padding: 15px;
+  margin: 15px 0;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 16px;
+  resize: vertical;
+}
+
+.analyze-button {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 8px;
+  background: #2563eb;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.analyze-button:hover {
+  background: #1d4ed8;
+}
+
+.result h2,
+.result h3 {
+  margin-top: 0;
+}
+
+.error {
+  color: #dc2626;
+  font-weight: bold;
+}
+
+@media (max-width: 600px) {
+  .analysis-selector {
+    flex-direction: column;
+  }
+
+  header h1 {
+    font-size: 2rem;
+  }
+
+
+  main {
+    width: 95%;
+  }
+}
+.text-input {
+  width: 100%;
+  padding: 15px;
+  margin: 15px 0;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 16px;
+}
+
+.helper-text {
+  color: #6b7280;
+}
+
+.analyze-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.report-item {
+  margin: 10px 0;
+  padding: 10px;
+  background: #f4f7fb;
+  border-radius: 6px;
+}
+
+.disclaimer {
+  margin-top: 25px;
+  font-size: 13px;
+  color: #6b7280;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 15px;
+}
+.file-input {
+  width: 100%;
+  padding: 12px;
+  margin: 15px 0;
+  border: 1px dashed #9ca3af;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.file-name {
+  font-size: 14px;
+  color: #374151;
+}
