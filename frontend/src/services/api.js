@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://scamshield-nwab.onrender.com";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://scamshield-gy1b.onrender.com";
 
 async function fetchWithTimeout(resource, options = {}) {
   const { timeout = 8000 } = options;
